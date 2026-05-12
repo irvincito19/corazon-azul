@@ -5,7 +5,7 @@ CONTAINER_NAME="finanzas-app"
 IMAGE_NAME="finanzas-personales"
 PORT=4000
 DB_FILE="local.db"
-PROD_URL="https://cu.irisvisual.com"
+PROD_URL="https://corazonazul.irisvisual.com"
 
 echo "🚀 Iniciando despliegue para $PROD_URL en puerto $PORT..."
 
