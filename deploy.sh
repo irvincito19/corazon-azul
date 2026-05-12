@@ -5,8 +5,9 @@ CONTAINER_NAME="finanzas-app"
 IMAGE_NAME="finanzas-personales"
 PORT=4000
 DB_FILE="local.db"
+PROD_URL="https://cu.irisvisual.com"
 
-echo "🚀 Iniciando despliegue desde cero en puerto $PORT..."
+echo "🚀 Iniciando despliegue para $PROD_URL en puerto $PORT..."
 
 # 1. Detener y eliminar contenedor/imagen previa si existen
 echo "🧹 Limpiando versiones anteriores..."
@@ -39,6 +40,7 @@ docker run -d \
   -p $PORT:3000 \
   -v $(pwd)/$DB_FILE:/app/data/local.db \
   -e DATABASE_URL=/app/data/local.db \
+  -e ORIGIN=$PROD_URL \
   --restart unless-stopped \
   $IMAGE_NAME
 
