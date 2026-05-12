@@ -16,20 +16,20 @@ docker stop $CONTAINER_NAME 2>/dev/null
 docker rm $CONTAINER_NAME 2>/dev/null
 docker rmi $IMAGE_NAME 2>/dev/null
 
-# 2. Preparar carpeta de datos y limpiar DB si se desea empezar de cero
+# 2. Preparar carpeta de datos y limpiar DB
+echo "🧹 Limpiando carpeta de datos..."
+sudo rm -rf $DB_DIR
 mkdir -p $DB_DIR
-if [ -f "$DB_FILE" ]; then
-    echo "🗑️ Eliminando base de datos antigua ($DB_FILE)..."
-    rm "$DB_FILE"
-fi
+sudo chmod 777 $DB_DIR
 
 # 3. Instalar dependencias locales (necesario para el seed inicial)
 echo "📦 Instalando dependencias locales..."
 npm install
 
 # 4. Sembrar datos iniciales (crear usuarios)
-echo "🌱 Sembrando datos iniciales (irving/viridiana)..."
+echo "🌱 Sembrando datos iniciales en $DB_FILE..."
 DATABASE_URL=$DB_FILE node seed.js
+sudo chmod 666 $DB_FILE
 
 # 5. Construir la imagen de Docker
 echo "🏗️ Construyendo imagen de Docker..."
@@ -46,6 +46,12 @@ docker run -d \
   --restart unless-stopped \
   $IMAGE_NAME
 
+echo "⏳ Esperando a que el contenedor inicie..."
+sleep 5
+
+echo "🔍 Verificando usuarios dentro del contenedor..."
+docker exec $CONTAINER_NAME node -e "const Database = require('better-sqlite3'); const db = new Database('/app/data/local.db'); console.log('Usuarios en DB:', db.prepare('SELECT username FROM users').all());"
+
 echo "✅ Despliegue completado con éxito!"
-echo "📍 La app está corriendo en: http://localhost:$PORT"
+echo "📍 La app está corriendo en: $PROD_URL"
 echo "👤 Usuarios: irving / viridiana | Password: familia123"
