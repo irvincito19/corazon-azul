@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { groceryItems, expenses } from '$lib/server/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { fail, redirect } from '@sveltejs/kit';
 import { format } from 'date-fns';
 import type { PageServerLoad, Actions } from './$types';
@@ -88,6 +88,23 @@ export const actions: Actions = {
 		const id = parseInt(data.get('id') as string);
 
 		if (!isNaN(id)) {
+			const [item] = await db
+				.select()
+				.from(groceryItems)
+				.where(eq(groceryItems.id, id));
+
+			if (item && item.price) {
+				await db
+					.delete(expenses)
+					.where(
+						and(
+							eq(expenses.note, item.name),
+							eq(expenses.amount, item.price),
+							eq(expenses.categoryId, 'despensa')
+						)
+					);
+			}
+
 			await db.delete(groceryItems).where(eq(groceryItems.id, id));
 		}
 
@@ -117,6 +134,25 @@ export const actions: Actions = {
 	},
 
 	clearPurchased: async () => {
+		const purchased = await db
+			.select()
+			.from(groceryItems)
+			.where(eq(groceryItems.purchased, 1));
+
+		for (const item of purchased) {
+			if (item.price) {
+				await db
+					.delete(expenses)
+					.where(
+						and(
+							eq(expenses.note, item.name),
+							eq(expenses.amount, item.price),
+							eq(expenses.categoryId, 'despensa')
+						)
+					);
+			}
+		}
+
 		await db.delete(groceryItems).where(eq(groceryItems.purchased, 1));
 		return { success: true };
 	},

@@ -30,6 +30,7 @@
 	let editDate = $state('');
 
 	let deletingId = $state<number | null>(null);
+	let despensaExpanded = $state(false);
 
 	const budget = $derived(data.quincenaBudget);
 	const spent = $derived(data.quincenaTotal);
@@ -329,20 +330,53 @@
 	<h3 class="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">Gastos de {quincenaLabel}</h3>
 	<div class="space-y-2">
 		{#if data.despensaTotal > 0}
-			<Card class="flex items-center justify-between p-3.5 border-l-4" style="border-left-color: #f97316;">
-				<div class="flex items-center gap-3 min-w-0">
-					<div class="flex-shrink-0 rounded-full p-2" style="background-color: #f9731622; color: #f97316;">
-						<ShoppingCart size={16} />
+			<div>
+				<button onclick={() => despensaExpanded = !despensaExpanded} class="w-full text-left">
+					<Card class="flex items-center justify-between p-3.5 border-l-4 cursor-pointer hover:bg-card/80 transition-colors" style="border-left-color: #f97316;">
+						<div class="flex items-center gap-3 min-w-0">
+							<div class="flex-shrink-0 rounded-full p-2" style="background-color: #f9731622; color: #f97316;">
+								<ShoppingCart size={16} />
+							</div>
+							<div class="min-w-0">
+								<p class="text-sm font-bold capitalize">Despensa</p>
+								<p class="text-[10px] text-muted-foreground">{data.despensaCount} artículo(s)</p>
+							</div>
+						</div>
+						<div class="flex items-center gap-2 flex-shrink-0 ml-2">
+							<p class="text-sm font-black" style="color: #f97316;">-{formatCurrency(data.despensaTotal)}</p>
+						</div>
+					</Card>
+				</button>
+				{#if despensaExpanded}
+					<div class="space-y-1.5 mt-1.5 pl-4 border-l-2 border-muted">
+						{#each data.despensaExpenses as expense}
+							{@const color = '#f97316'}
+							<Card class="flex items-center justify-between p-3 border-l-4" style="border-left-color: {color};">
+								<div class="flex items-center gap-3 min-w-0">
+									<div class="flex-shrink-0 rounded-full p-1.5" style="background-color: {color}22; color: {color};">
+										<ShoppingCart size={14} />
+									</div>
+									<div class="min-w-0">
+										<p class="text-sm font-bold capitalize truncate">{expense.note || 'Despensa'}</p>
+										<p class="text-[10px] text-muted-foreground">
+											{expense.payer} · {format(new Date(expense.date + 'T00:00:00'), 'd MMM', { locale: es })}
+										</p>
+									</div>
+								</div>
+								<div class="flex items-center gap-2 flex-shrink-0 ml-2">
+									<p class="text-sm font-black" style="color: {color};">-{formatCurrency(expense.amount)}</p>
+									<button onclick={() => openEdit(expense)} class="text-muted-foreground hover:text-foreground transition-colors p-1 rounded">
+										<Pencil size={14} />
+									</button>
+									<button onclick={() => deletingId = expense.id} class="text-muted-foreground hover:text-red-500 transition-colors p-1 rounded">
+										<Trash2 size={14} />
+									</button>
+								</div>
+							</Card>
+						{/each}
 					</div>
-					<div class="min-w-0">
-						<p class="text-sm font-bold capitalize">Despensa</p>
-						<p class="text-[10px] text-muted-foreground">{data.despensaCount} artículo(s)</p>
-					</div>
-				</div>
-				<div class="flex items-center gap-2 flex-shrink-0 ml-2">
-					<p class="text-sm font-black" style="color: #f97316;">-{formatCurrency(data.despensaTotal)}</p>
-				</div>
-			</Card>
+				{/if}
+			</div>
 		{/if}
 		{#if data.recentExpenses.length === 0 && data.despensaTotal === 0}
 			<p class="text-center text-sm text-muted-foreground py-10">Sin gastos esta quincena 🎉</p>

@@ -123,6 +123,23 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		.from(expenses)
 		.where(and(gte(expenses.date, start), lte(expenses.date, end), eq(expenses.categoryId, 'despensa')));
 
+	// Items individuales de despensa (para expandir)
+	const despensaExpenses = await db
+		.select({
+			id: expenses.id,
+			amount: expenses.amount,
+			category: expenses.categoryId,
+			date: expenses.date,
+			note: expenses.note,
+			payer: users.username,
+			color: recurringExpenses.color
+		})
+		.from(expenses)
+		.innerJoin(users, eq(expenses.payerId, users.id))
+		.leftJoin(recurringExpenses, eq(expenses.recurringExpenseId, recurringExpenses.id))
+		.where(and(gte(expenses.date, start), lte(expenses.date, end), eq(expenses.categoryId, 'despensa')))
+		.orderBy(desc(expenses.createdAt));
+
 	// Desglose por categoría
 	const categoryBreakdown = await db
 		.select({
@@ -179,6 +196,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		recentExpenses,
 		despensaTotal: despensaTotal?.total || 0,
 		despensaCount: despensaTotal?.count || 0,
+		despensaExpenses,
 		categoryBreakdown,
 		recurring: isCurrentQuincena
 			? recurring.filter(
