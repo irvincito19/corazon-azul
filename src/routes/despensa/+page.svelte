@@ -2,28 +2,29 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
-	import { ArrowLeft, Plus, Trash2, Check, LogOut, ShoppingCart, X } from 'lucide-svelte';
+	import { ArrowLeft, Plus, Trash2, Check, LogOut, ShoppingCart, DollarSign, Receipt } from 'lucide-svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 
 	let { data } = $props();
 
 	let newName = $state('');
+	let newPrice = $state('');
 	let deletingId = $state<number | null>(null);
 	let showSuccess = $state(false);
 
 	const pendingItems = $derived(data.items.filter((i) => !i.purchased));
 	const purchasedItems = $derived(data.items.filter((i) => i.purchased));
 
-	function handleSuccess() {
-		newName = '';
-		showSuccess = true;
-		setTimeout(() => (showSuccess = false), 2000);
+	function formatCurrency(n: number) {
+		return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 	}
 
-	function toggleItem(id: number, purchased: number) {
-		const form = document.querySelector(`#toggle-${id}`) as HTMLFormElement;
-		if (form) form.requestSubmit();
+	function handleSuccess() {
+		newName = '';
+		newPrice = '';
+		showSuccess = true;
+		setTimeout(() => (showSuccess = false), 2000);
 	}
 </script>
 
@@ -54,22 +55,37 @@
 				await update();
 				if (result.type === 'success') handleSuccess();
 			};
-		}} class="flex gap-2">
-			<div class="relative flex-1">
+		}} class="space-y-3">
+			<div class="flex gap-2">
+				<div class="relative flex-1">
+					<span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+						<ShoppingCart size={16} />
+					</span>
+					<Input
+						name="name"
+						placeholder="Agregar artículo…"
+						bind:value={newName}
+						class="pl-9"
+						required
+					/>
+				</div>
+				<Button type="submit" class="gap-1 flex-shrink-0">
+					<Plus size={16} /> Agregar
+				</Button>
+			</div>
+			<div class="relative">
 				<span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-					<ShoppingCart size={16} />
+					<DollarSign size={16} />
 				</span>
 				<Input
-					name="name"
-					placeholder="Agregar artículo…"
-					bind:value={newName}
+					name="price"
+					type="number"
+					step="0.01"
+					placeholder="Precio opcional"
+					bind:value={newPrice}
 					class="pl-9"
-					required
 				/>
 			</div>
-			<Button type="submit" class="gap-1 flex-shrink-0">
-				<Plus size={16} /> Agregar
-			</Button>
 		</form>
 		{#if showSuccess}
 			<p class="mt-2 text-center text-xs font-medium text-green-500 flex items-center justify-center gap-1">
@@ -99,9 +115,31 @@
 							aria-label="Marcar como comprado"
 						></button>
 					</form>
-					<p class="text-sm font-medium">{item.name}</p>
+					<div>
+						<p class="text-sm font-medium">{item.name}</p>
+						{#if item.price}
+							<p class="text-[11px] text-muted-foreground">{formatCurrency(item.price)}</p>
+						{/if}
+					</div>
 				</div>
 				<div class="flex items-center gap-2 flex-shrink-0">
+					{#if item.price}
+						<form method="POST" action="?/registerAsExpense" use:enhance={() => {
+							return async ({ update }) => {
+								await update();
+							};
+						}}>
+							<input type="hidden" name="id" value={item.id} />
+							<button
+								type="submit"
+								class="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2.5 py-1.5 text-[11px] font-semibold text-primary transition-all hover:bg-primary/20 active:scale-95"
+								title="Pasar a gastos"
+							>
+								<Receipt size={12} />
+								Gasto
+							</button>
+						</form>
+					{/if}
 					<button
 						onclick={() => deletingId = item.id}
 						class="text-muted-foreground hover:text-red-500 transition-colors p-1 rounded"
@@ -147,7 +185,12 @@
 								<Check size={14} />
 							</button>
 						</form>
-						<p class="text-sm font-medium line-through">{item.name}</p>
+						<div>
+							<p class="text-sm font-medium line-through">{item.name}</p>
+							{#if item.price}
+								<p class="text-[11px] text-muted-foreground line-through">{formatCurrency(item.price)}</p>
+							{/if}
+						</div>
 					</div>
 					<div class="flex items-center gap-2 flex-shrink-0">
 						<button

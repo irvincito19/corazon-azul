@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { 
 		Utensils, Car, Home, Zap, 
-		Play, HeartPulse, ShoppingBag, MoreHorizontal,
+		Play, HeartPulse, ShoppingBag, MoreHorizontal, ShoppingCart,
 		ArrowDownRight, ArrowUpRight, Plus, LogOut, Wallet
 	} from 'lucide-svelte';
 
@@ -15,6 +15,7 @@
 		entretenimiento: Play,
 		salud: HeartPulse,
 		compras: ShoppingBag,
+		despensa: ShoppingCart,
 		otros: MoreHorizontal
 	};
 

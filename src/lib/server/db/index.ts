@@ -74,11 +74,14 @@ sqlite.exec(`
 	CREATE TABLE IF NOT EXISTS grocery_items (
 		id INTEGER PRIMARY KEY,
 		name TEXT NOT NULL,
+		price REAL,
 		purchased INTEGER NOT NULL DEFAULT 0,
 		created_by INTEGER NOT NULL REFERENCES users(id),
 		created_at TEXT DEFAULT CURRENT_TIMESTAMP
 	);
 `);
+
+ensureColumn('grocery_items', 'price', 'REAL');
 
 if (tableExists('expenses') && tableExists('recurring_expenses')) {
 	sqlite.exec(`

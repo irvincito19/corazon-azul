@@ -13,7 +13,7 @@
 
 	const categories = [
 		'comida', 'transporte', 'casa', 'servicios',
-		'entretenimiento', 'salud', 'compras', 'otros'
+		'entretenimiento', 'salud', 'compras', 'despensa', 'otros'
 	];
 
 	let amount = $state('');
@@ -98,6 +98,7 @@
 		entretenimiento: '#a855f7',
 		salud: '#22c55e',
 		compras: '#ec4899',
+		despensa: '#f97316',
 		otros: '#71717a'
 	};
 

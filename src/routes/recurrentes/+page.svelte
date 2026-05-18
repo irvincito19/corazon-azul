@@ -11,7 +11,7 @@
 
 	const categories = [
 		'comida', 'transporte', 'casa', 'servicios',
-		'entretenimiento', 'salud', 'compras', 'otros'
+		'entretenimiento', 'salud', 'compras', 'despensa', 'otros'
 	];
 	const colorOptions = [
 		'#3b82f6',
