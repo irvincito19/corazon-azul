@@ -1,30 +1,44 @@
 import { db } from '$lib/server/db';
 import { appSettings, expenses, users, recurringExpenses } from '$lib/server/db/schema';
-import { eq, and, sql, desc, gte, lte } from 'drizzle-orm';
+import { eq, and, sql, desc, gte, lte, ne } from 'drizzle-orm';
 import { format } from 'date-fns';
 import { fail, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 
-/** Devuelve el rango del mes */
-function getMonthRange(year: number, month: number): { start: string; end: string } {
-	const start = new Date(year, month, 1);
-	const end = new Date(year, month + 1, 0);
+/** Devuelve el rango de una quincena */
+function getQuincenaRange(year: number, month: number, quincena: number): { start: string; end: string } {
+	let start: Date;
+	let end: Date;
+
+	if (quincena === 1) {
+		start = new Date(year, month, 1);
+		end = new Date(year, month, 15);
+	} else {
+		start = new Date(year, month, 16);
+		end = new Date(year, month + 1, 0);
+	}
+
 	return {
 		start: format(start, 'yyyy-MM-dd'),
 		end: format(end, 'yyyy-MM-dd')
 	};
 }
 
-const MONTHLY_BUDGET_KEY = 'monthly_budget';
-const DEFAULT_MONTHLY_BUDGET = 17400;
+/** Calcula la quincena actual (1 o 2) */
+function getCurrentQuincena(): number {
+	return new Date().getDate() <= 15 ? 1 : 2;
+}
 
-async function getMonthlyBudget() {
+const QUINCENA_BUDGET_KEY = 'quincena_budget';
+const DEFAULT_QUINCENA_BUDGET = 8700;
+
+async function getQuincenaBudget() {
 	const [setting] = await db
 		.select({ value: appSettings.value })
 		.from(appSettings)
-		.where(eq(appSettings.key, MONTHLY_BUDGET_KEY));
+		.where(eq(appSettings.key, QUINCENA_BUDGET_KEY));
 	const budget = Number(setting?.value);
-	return Number.isFinite(budget) && budget > 0 ? budget : DEFAULT_MONTHLY_BUDGET;
+	return Number.isFinite(budget) && budget > 0 ? budget : DEFAULT_QUINCENA_BUDGET;
 }
 
 async function hasRecurringBeenApplied(
@@ -53,20 +67,26 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const now = new Date();
 	const paramYear = parseInt(url.searchParams.get('year') || '');
 	const paramMonth = parseInt(url.searchParams.get('month') || '');
+	const paramQuincena = parseInt(url.searchParams.get('quincena') || '');
+
 	const year = !isNaN(paramYear) ? paramYear : now.getFullYear();
 	const month = !isNaN(paramMonth) ? paramMonth : now.getMonth();
+	const quincena = !isNaN(paramQuincena) ? paramQuincena : getCurrentQuincena();
 
-	const { start, end } = getMonthRange(year, month);
-	const monthlyBudget = await getMonthlyBudget();
-	const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+	const { start, end } = getQuincenaRange(year, month, quincena);
+	const quincenaBudget = await getQuincenaBudget();
+	const isCurrentQuincena =
+		year === now.getFullYear() &&
+		month === now.getMonth() &&
+		quincena === getCurrentQuincena();
 
-	// Total gasto este mes
-	const [monthTotal] = await db
+	// Total gasto esta quincena
+	const [quincenaTotal] = await db
 		.select({ value: sql<number>`coalesce(sum(${expenses.amount}), 0)` })
 		.from(expenses)
 		.where(and(gte(expenses.date, start), lte(expenses.date, end)));
 
-	// Gastos por usuario este mes
+	// Gastos por usuario esta quincena
 	const userTotals = await db
 		.select({
 			username: users.username,
@@ -77,7 +97,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		.where(and(gte(expenses.date, start), lte(expenses.date, end)))
 		.groupBy(users.username);
 
-	// Gastos del mes
+	// Gastos de la quincena (excluyendo despensa)
 	const recentExpenses = await db
 		.select({
 			id: expenses.id,
@@ -91,8 +111,17 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		.from(expenses)
 		.innerJoin(users, eq(expenses.payerId, users.id))
 		.leftJoin(recurringExpenses, eq(expenses.recurringExpenseId, recurringExpenses.id))
-		.where(and(gte(expenses.date, start), lte(expenses.date, end)))
+		.where(and(gte(expenses.date, start), lte(expenses.date, end), ne(expenses.categoryId, 'despensa')))
 		.orderBy(desc(expenses.createdAt));
+
+	// Total acumulado de despensa
+	const [despensaTotal] = await db
+		.select({
+			total: sql<number>`coalesce(sum(${expenses.amount}), 0)`,
+			count: sql<number>`count(*)`
+		})
+		.from(expenses)
+		.where(and(gte(expenses.date, start), lte(expenses.date, end), eq(expenses.categoryId, 'despensa')));
 
 	// Desglose por categoría
 	const categoryBreakdown = await db
@@ -105,7 +134,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		.groupBy(expenses.categoryId)
 		.orderBy(desc(sql`sum(${expenses.amount})`));
 
-	// Gastos recurrentes (solo mostrar no aplicados si es el mes actual)
+	// Gastos recurrentes
 	const recurring = await db
 		.select({
 			id: recurringExpenses.id,
@@ -139,16 +168,19 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	return {
 		user,
-		monthTotal: monthTotal?.value || 0,
-		monthlyBudget,
-		monthRange: { start, end },
+		quincenaTotal: quincenaTotal?.value || 0,
+		quincenaBudget,
+		quincenaRange: { start, end },
 		year,
 		month,
-		isCurrentMonth,
+		quincena,
+		isCurrentQuincena,
 		userTotals,
 		recentExpenses,
+		despensaTotal: despensaTotal?.total || 0,
+		despensaCount: despensaTotal?.count || 0,
 		categoryBreakdown,
-		recurring: isCurrentMonth
+		recurring: isCurrentQuincena
 			? recurring.filter(
 					(item) => !appliedRecurringIds.has(item.id) && !appliedRecurringKeys.has(`${item.name}|${item.amount}|${item.category}`)
 				)
@@ -191,7 +223,7 @@ export const actions: Actions = {
 
 		await db
 			.insert(appSettings)
-			.values({ key: MONTHLY_BUDGET_KEY, value: String(budget) })
+			.values({ key: QUINCENA_BUDGET_KEY, value: String(budget) })
 			.onConflictDoUpdate({
 				target: appSettings.key,
 				set: { value: String(budget) }
@@ -235,7 +267,8 @@ export const actions: Actions = {
 		if (isNaN(id)) return fail(400, { message: 'ID inválido' });
 
 		const now = new Date();
-		const { start, end } = getMonthRange(now.getFullYear(), now.getMonth());
+		const quincena = getCurrentQuincena();
+		const { start, end } = getQuincenaRange(now.getFullYear(), now.getMonth(), quincena);
 
 		const [item] = await db
 			.select()
@@ -245,7 +278,7 @@ export const actions: Actions = {
 		if (!item) return fail(404, { message: 'No encontrado' });
 
 		if (await hasRecurringBeenApplied(item, start, end)) {
-			return fail(409, { message: 'Este recurrente ya fue registrado este mes' });
+			return fail(409, { message: 'Este recurrente ya fue registrado esta quincena' });
 		}
 
 		await db.insert(expenses).values({

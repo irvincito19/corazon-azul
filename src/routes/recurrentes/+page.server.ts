@@ -17,11 +17,18 @@ const ALLOWED_COLORS = new Set([
 	'#ef4444'
 ]);
 
-function getMonthRange(): { start: string; end: string } {
+function getQuincenaRange(): { start: string; end: string } {
 	const now = new Date();
+	const day = now.getDate();
+	const year = now.getFullYear();
+	const month = now.getMonth();
+
+	const start = day <= 15 ? new Date(year, month, 1) : new Date(year, month, 16);
+	const end = day <= 15 ? new Date(year, month, 15) : new Date(year, month + 1, 0);
+
 	return {
-		start: format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd'),
-		end: format(new Date(now.getFullYear(), now.getMonth() + 1, 0), 'yyyy-MM-dd')
+		start: format(start, 'yyyy-MM-dd'),
+		end: format(end, 'yyyy-MM-dd')
 	};
 }
 
@@ -50,7 +57,7 @@ async function hasRecurringBeenApplied(
 }
 
 export const load: PageServerLoad = async () => {
-	const { start, end } = getMonthRange();
+	const { start, end } = getQuincenaRange();
 	const items = await db
 		.select({
 			id: recurringExpenses.id,
@@ -87,7 +94,7 @@ export const load: PageServerLoad = async () => {
 	return {
 		items: items.map((item) => ({
 			...item,
-			appliedThisMonth:
+			appliedThisQuincena:
 				appliedRecurringIds.has(item.id) ||
 				appliedRecurringKeys.has(`${item.name}|${item.amount}|${item.category}`)
 		}))
@@ -154,7 +161,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const id = parseInt(data.get('id') as string);
 		if (isNaN(id)) return fail(400, { message: 'ID inválido' });
-		const { start, end } = getMonthRange();
+		const { start, end } = getQuincenaRange();
 
 		const [item] = await db
 			.select()
@@ -164,7 +171,7 @@ export const actions: Actions = {
 		if (!item) return fail(404, { message: 'No encontrado' });
 
 		if (await hasRecurringBeenApplied(item, start, end)) {
-			return fail(409, { message: 'Este recurrente ya fue registrado este mes' });
+			return fail(409, { message: 'Este recurrente ya fue registrado esta quincena' });
 		}
 
 		await db.insert(expenses).values({

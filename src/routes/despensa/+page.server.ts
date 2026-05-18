@@ -94,6 +94,28 @@ export const actions: Actions = {
 		return { success: true };
 	},
 
+	editItem: async ({ request }) => {
+		const data = await request.formData();
+		const id = parseInt(data.get('id') as string);
+		const name = (data.get('name') as string).trim();
+		const priceStr = (data.get('price') as string) || '';
+		const price = priceStr ? parseFloat(priceStr) : null;
+
+		if (isNaN(id) || !name) {
+			return fail(400, { message: 'Nombre inválido' });
+		}
+
+		await db
+			.update(groceryItems)
+			.set({
+				name,
+				price: price && Number.isFinite(price) ? price : null
+			})
+			.where(eq(groceryItems.id, id));
+
+		return { success: true };
+	},
+
 	clearPurchased: async () => {
 		await db.delete(groceryItems).where(eq(groceryItems.purchased, 1));
 		return { success: true };

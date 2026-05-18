@@ -2,7 +2,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
-	import { ArrowLeft, Plus, Trash2, Check, LogOut, ShoppingCart, DollarSign, Receipt } from 'lucide-svelte';
+	import { ArrowLeft, Plus, Trash2, Check, LogOut, ShoppingCart, DollarSign, Receipt, Pencil, X } from 'lucide-svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 
@@ -11,6 +11,9 @@
 	let newName = $state('');
 	let newPrice = $state('');
 	let deletingId = $state<number | null>(null);
+	let editingItem = $state<{ id: number; name: string; price: number | null } | null>(null);
+	let editName = $state('');
+	let editPrice = $state('');
 	let showSuccess = $state(false);
 
 	const pendingItems = $derived(data.items.filter((i) => !i.purchased));
@@ -25,6 +28,16 @@
 		newPrice = '';
 		showSuccess = true;
 		setTimeout(() => (showSuccess = false), 2000);
+	}
+
+	function openEdit(item: typeof data.items[0]) {
+		editingItem = { id: item.id, name: item.name, price: item.price };
+		editName = item.name;
+		editPrice = item.price ? String(item.price) : '';
+	}
+
+	function closeEdit() {
+		editingItem = null;
 	}
 </script>
 
@@ -140,6 +153,9 @@
 							</button>
 						</form>
 					{/if}
+					<button onclick={() => openEdit(item)} class="text-muted-foreground hover:text-foreground transition-colors p-1 rounded" title="Editar">
+						<Pencil size={14} />
+					</button>
 					<button
 						onclick={() => deletingId = item.id}
 						class="text-muted-foreground hover:text-red-500 transition-colors p-1 rounded"
@@ -193,6 +209,9 @@
 						</div>
 					</div>
 					<div class="flex items-center gap-2 flex-shrink-0">
+						<button onclick={() => openEdit(item)} class="text-muted-foreground hover:text-foreground transition-colors p-1 rounded" title="Editar">
+							<Pencil size={14} />
+						</button>
 						<button
 							onclick={() => deletingId = item.id}
 							class="text-muted-foreground hover:text-red-500 transition-colors p-1 rounded"
@@ -206,6 +225,50 @@
 		</div>
 	{/if}
 </div>
+
+<!-- EDIT MODAL -->
+{#if editingItem}
+	<div class="fixed inset-0 z-50 flex items-end justify-center">
+		<button type="button" aria-label="Cerrar edición" class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick={closeEdit}></button>
+		<div class="relative w-full max-w-md rounded-t-2xl bg-background border-t border-border p-6 space-y-4 animate-slideup">
+			<div class="flex items-center justify-between">
+				<h2 class="text-base font-bold">Editar artículo</h2>
+				<button onclick={closeEdit} class="text-muted-foreground hover:text-foreground"><X size={20} /></button>
+			</div>
+
+			<form method="POST" action="?/editItem" use:enhance={() => {
+				return async ({ result, update }) => {
+					await update();
+					if (result.type === 'success') {
+						closeEdit();
+						invalidateAll();
+					}
+				};
+			}} class="space-y-3">
+				<input type="hidden" name="id" value={editingItem.id} />
+
+				<div class="relative">
+					<span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+						<ShoppingCart size={16} />
+					</span>
+					<Input name="name" bind:value={editName} placeholder="Nombre" class="pl-9" required />
+				</div>
+
+				<div class="relative">
+					<span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+						<DollarSign size={16} />
+					</span>
+					<Input name="price" type="number" step="0.01" bind:value={editPrice} placeholder="Precio" class="pl-9" />
+				</div>
+
+				<div class="flex gap-2 pt-1">
+					<Button variant="outline" class="flex-1" type="button" onclick={closeEdit}>Cancelar</Button>
+					<Button type="submit" class="flex-1 gap-1"><Check size={16} /> Guardar</Button>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}
 
 <!-- DELETE CONFIRM MODAL -->
 {#if deletingId !== null}
@@ -243,5 +306,14 @@
 <style>
 	:global(body) {
 		background-color: #0c0c0e;
+	}
+
+	@keyframes slideup {
+		from { transform: translateY(100%); opacity: 0; }
+		to   { transform: translateY(0);    opacity: 1; }
+	}
+
+	.animate-slideup {
+		animation: slideup 0.25s ease-out;
 	}
 </style>

@@ -59,15 +59,15 @@ sqlite.exec(`
 		value TEXT NOT NULL
 	);
 	INSERT OR IGNORE INTO app_settings (key, value)
-	VALUES ('monthly_budget', '17400');
+	VALUES ('quincena_budget', '8700');
 `);
 
-// Migrate old quincena_budget to monthly_budget (×2)
-const oldBudget = sqlite.prepare("SELECT value FROM app_settings WHERE key = 'quincena_budget'").get() as { value: string } | undefined;
-if (oldBudget) {
-	const monthlyValue = (parseFloat(oldBudget.value) * 2).toString();
-	sqlite.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('monthly_budget', ?)").run(monthlyValue);
-	sqlite.prepare("DELETE FROM app_settings WHERE key = 'quincena_budget'").run();
+// Migrate old monthly_budget back to quincena_budget (÷2)
+const oldMonthly = sqlite.prepare("SELECT value FROM app_settings WHERE key = 'monthly_budget'").get() as { value: string } | undefined;
+if (oldMonthly) {
+	const quincenaValue = (parseFloat(oldMonthly.value) / 2).toString();
+	sqlite.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('quincena_budget', ?)").run(quincenaValue);
+	sqlite.prepare("DELETE FROM app_settings WHERE key = 'monthly_budget'").run();
 }
 
 sqlite.exec(`

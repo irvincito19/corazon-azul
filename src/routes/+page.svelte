@@ -31,8 +31,8 @@
 
 	let deletingId = $state<number | null>(null);
 
-	const budget = $derived(data.monthlyBudget);
-	const spent = $derived(data.monthTotal);
+	const budget = $derived(data.quincenaBudget);
+	const spent = $derived(data.quincenaTotal);
 	const remaining = $derived(budget - spent);
 	const progress = $derived(Math.min((spent / budget) * 100, 100));
 	const progressColor = $derived(
@@ -44,19 +44,26 @@
 
 	const selectedDate = $derived(new Date(data.year, data.month));
 
-	function prevMonth() {
-		const d = new Date(data.year, data.month - 1);
-		goto(`/?year=${d.getFullYear()}&month=${d.getMonth()}`);
+	function prevQuincena() {
+		let y = data.year;
+		let m = data.month;
+		let q = data.quincena - 1;
+		if (q < 1) { q = 2; m -= 1; if (m < 0) { m = 11; y -= 1; } }
+		goto(`/?year=${y}&month=${m}&quincena=${q}`);
 	}
 
-	function nextMonth() {
-		const d = new Date(data.year, data.month + 1);
-		goto(`/?year=${d.getFullYear()}&month=${d.getMonth()}`);
+	function nextQuincena() {
+		let y = data.year;
+		let m = data.month;
+		let q = data.quincena + 1;
+		if (q > 2) { q = 1; m += 1; if (m > 11) { m = 0; y += 1; } }
+		goto(`/?year=${y}&month=${m}&quincena=${q}`);
 	}
 
-	function goToCurrentMonth() {
+	function goToCurrentQuincena() {
 		const now = new Date();
-		goto(`/?year=${now.getFullYear()}&month=${now.getMonth()}`);
+		const q = now.getDate() <= 15 ? 1 : 2;
+		goto(`/?year=${now.getFullYear()}&month=${now.getMonth()}&quincena=${q}`);
 	}
 
 	function handleSuccess() {
@@ -80,7 +87,7 @@
 	}
 
 	function openBudgetForm() {
-		budgetValue = String(data.monthlyBudget);
+		budgetValue = String(data.quincenaBudget);
 		showBudgetForm = true;
 	}
 
@@ -88,7 +95,10 @@
 		return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 	}
 
-	const monthLabel = $derived(format(selectedDate, "MMMM 'de' yyyy", { locale: es }));
+	const quincenaOrdinal = $derived(data.quincena === 1 ? '1ra' : '2da');
+	const quincenaLabel = $derived(
+		`${quincenaOrdinal} Quincena de ${format(selectedDate, "MMMM 'de' yyyy", { locale: es })}`
+	);
 
 	const categoryColors: Record<string, string> = {
 		comida: '#ef4444',
@@ -133,26 +143,26 @@
 		</div>
 	</div>
 
-	<!-- Month Navigation -->
+	<!-- Quincena Navigation -->
 	<div class="mb-4 flex items-center justify-between">
-		<button onclick={prevMonth} class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted transition-colors">
+		<button onclick={prevQuincena} class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted transition-colors">
 			<ChevronLeft size={20} />
 		</button>
-		<button onclick={goToCurrentMonth} class="text-sm font-bold capitalize hover:text-primary transition-colors" disabled={data.isCurrentMonth}>
-			{monthLabel}
+		<button onclick={goToCurrentQuincena} class="text-sm font-bold capitalize hover:text-primary transition-colors" disabled={data.isCurrentQuincena}>
+			{quincenaLabel}
 		</button>
-		<button onclick={nextMonth} class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted transition-colors">
+		<button onclick={nextQuincena} class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted transition-colors">
 			<ChevronRight size={20} />
 		</button>
 	</div>
 
-	<!-- Monthly Budget Card -->
+	<!-- Quincena Budget Card -->
 	<Card class="mb-6 p-5 bg-primary text-primary-foreground shadow-lg shadow-primary/20">
 		<div class="flex items-start justify-between mb-1">
 			<div>
-				<p class="text-[10px] font-semibold uppercase tracking-wider opacity-70">Presupuesto del mes</p>
+				<p class="text-[10px] font-semibold uppercase tracking-wider opacity-70">Presupuesto de quincena</p>
 			</div>
-			{#if data.isCurrentMonth}
+			{#if data.isCurrentQuincena}
 				<button
 					type="button"
 					class="inline-flex items-center gap-1 rounded bg-white/10 px-2 py-1 text-[10px] font-bold opacity-80 transition hover:opacity-100"
@@ -179,7 +189,7 @@
 					}
 				};
 			}} class="mb-4 mt-4 rounded-lg bg-white/10 p-3">
-				<label for="budget" class="mb-2 block text-[10px] font-semibold uppercase tracking-wider opacity-70">Nuevo presupuesto mensual</label>
+				<label for="budget" class="mb-2 block text-[10px] font-semibold uppercase tracking-wider opacity-70">Nuevo presupuesto de quincena</label>
 				<div class="flex gap-2">
 					<div class="relative flex-1">
 						<span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs opacity-70">$</span>
@@ -193,7 +203,7 @@
 
 		<div class="mt-3 mb-4">
 			<h2 class="text-4xl font-black tracking-tight">{formatCurrency(spent)}</h2>
-			<p class="text-[10px] uppercase tracking-wider opacity-60">gastado hasta ahora</p>
+			<p class="text-[10px] uppercase tracking-wider opacity-60">gastado esta quincena</p>
 			<p class="text-xs mt-1 opacity-80">
 				{#if remaining >= 0}
 					Te quedan <span class="font-bold">{formatCurrency(remaining)}</span>
@@ -226,8 +236,8 @@
 		{/if}
 	</Card>
 
-	<!-- Quick Add Form - solo en mes actual -->
-	{#if data.isCurrentMonth}
+	<!-- Quick Add Form - solo en quincena actual -->
+	{#if data.isCurrentQuincena}
 		<h3 class="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">Registrar Gasto</h3>
 		<Card class="mb-6 p-5">
 			<form method="POST" action="?/addExpense" use:enhance={() => {
@@ -284,7 +294,7 @@
 
 		<!-- Recurring quick-apply -->
 		{#if data.recurring.length > 0}
-			<h3 class="mb-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">Recurrentes — Aplicar al mes</h3>
+			<h3 class="mb-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">Recurrentes — Aplicar a la quincena</h3>
 			<p class="mb-3 text-[11px] leading-relaxed text-muted-foreground/70">
 				Úsalos para tus pagos fijos: renta, servicios o suscripciones. No cuentan hasta que los registras como gasto.
 			</p>
@@ -315,9 +325,28 @@
 		{/if}
 	{/if}
 
-	<!-- Recent Expenses -->
-	<h3 class="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">Gastos de {monthLabel}</h3>
+	<!-- Recent Expenses (excluye despensa) -->
+	<h3 class="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">Gastos de {quincenaLabel}</h3>
 	<div class="space-y-2">
+		{#if data.despensaTotal > 0}
+			<Card class="flex items-center justify-between p-3.5 border-l-4" style="border-left-color: #f97316;">
+				<div class="flex items-center gap-3 min-w-0">
+					<div class="flex-shrink-0 rounded-full p-2" style="background-color: #f9731622; color: #f97316;">
+						<ShoppingCart size={16} />
+					</div>
+					<div class="min-w-0">
+						<p class="text-sm font-bold capitalize">Despensa</p>
+						<p class="text-[10px] text-muted-foreground">{data.despensaCount} artículo(s)</p>
+					</div>
+				</div>
+				<div class="flex items-center gap-2 flex-shrink-0 ml-2">
+					<p class="text-sm font-black" style="color: #f97316;">-{formatCurrency(data.despensaTotal)}</p>
+				</div>
+			</Card>
+		{/if}
+		{#if data.recentExpenses.length === 0 && data.despensaTotal === 0}
+			<p class="text-center text-sm text-muted-foreground py-10">Sin gastos esta quincena 🎉</p>
+		{/if}
 		{#each data.recentExpenses as expense}
 			{@const color = getExpenseColor(expense)}
 			<Card class="flex items-center justify-between p-3.5 border-l-4" style="border-left-color: {color};">
@@ -349,8 +378,6 @@
 					</button>
 				</div>
 			</Card>
-		{:else}
-			<p class="text-center text-sm text-muted-foreground py-10">Sin gastos este mes 🎉</p>
 		{/each}
 	</div>
 
