@@ -17,18 +17,11 @@ const ALLOWED_COLORS = new Set([
 	'#ef4444'
 ]);
 
-function getQuincenaRange(): { start: string; end: string } {
+function getMonthRange(): { start: string; end: string } {
 	const now = new Date();
-	const day = now.getDate();
-	const year = now.getFullYear();
-	const month = now.getMonth();
-
-	const start = day <= 15 ? new Date(year, month, 1) : new Date(year, month, 16);
-	const end = day <= 15 ? new Date(year, month, 15) : new Date(year, month + 1, 0);
-
 	return {
-		start: format(start, 'yyyy-MM-dd'),
-		end: format(end, 'yyyy-MM-dd')
+		start: format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd'),
+		end: format(new Date(now.getFullYear(), now.getMonth() + 1, 0), 'yyyy-MM-dd')
 	};
 }
 
@@ -57,7 +50,7 @@ async function hasRecurringBeenApplied(
 }
 
 export const load: PageServerLoad = async () => {
-	const { start, end } = getQuincenaRange();
+	const { start, end } = getMonthRange();
 	const items = await db
 		.select({
 			id: recurringExpenses.id,
@@ -94,7 +87,7 @@ export const load: PageServerLoad = async () => {
 	return {
 		items: items.map((item) => ({
 			...item,
-			appliedThisQuincena:
+			appliedThisMonth:
 				appliedRecurringIds.has(item.id) ||
 				appliedRecurringKeys.has(`${item.name}|${item.amount}|${item.category}`)
 		}))
@@ -105,17 +98,14 @@ export const actions: Actions = {
 	add: async ({ request, locals }) => {
 		const user = locals.user!;
 		const data = await request.formData();
-		
+
 		const name = data.get('name') as string;
 		const amount = parseFloat(data.get('amount') as string);
 		const category = data.get('category') as string;
 		const day = parseInt(data.get('day') as string);
 		const color = normalizeColor(data.get('color') as string | null);
 
-		console.log('DEBUG [Add Recurring]:', { name, amount, category, day, color });
-
 		if (!name || isNaN(amount) || !category || isNaN(day)) {
-			console.log('DEBUG [Add Recurring]: Validation failed');
 			return fail(400, { message: 'Todos los campos son obligatorios' });
 		}
 
@@ -130,7 +120,6 @@ export const actions: Actions = {
 			});
 			return { success: true };
 		} catch (e: any) {
-			console.error('ERROR [Add Recurring]:', e);
 			return fail(500, { message: 'Error al guardar en la base de datos: ' + e.message });
 		}
 	},
@@ -165,7 +154,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const id = parseInt(data.get('id') as string);
 		if (isNaN(id)) return fail(400, { message: 'ID inválido' });
-		const { start, end } = getQuincenaRange();
+		const { start, end } = getMonthRange();
 
 		const [item] = await db
 			.select()
@@ -175,7 +164,7 @@ export const actions: Actions = {
 		if (!item) return fail(404, { message: 'No encontrado' });
 
 		if (await hasRecurringBeenApplied(item, start, end)) {
-			return fail(409, { message: 'Este recurrente ya fue registrado en la quincena' });
+			return fail(409, { message: 'Este recurrente ya fue registrado este mes' });
 		}
 
 		await db.insert(expenses).values({

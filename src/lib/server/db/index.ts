@@ -59,7 +59,25 @@ sqlite.exec(`
 		value TEXT NOT NULL
 	);
 	INSERT OR IGNORE INTO app_settings (key, value)
-	VALUES ('quincena_budget', '8700');
+	VALUES ('monthly_budget', '17400');
+`);
+
+// Migrate old quincena_budget to monthly_budget (×2)
+const oldBudget = sqlite.prepare("SELECT value FROM app_settings WHERE key = 'quincena_budget'").get() as { value: string } | undefined;
+if (oldBudget) {
+	const monthlyValue = (parseFloat(oldBudget.value) * 2).toString();
+	sqlite.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('monthly_budget', ?)").run(monthlyValue);
+	sqlite.prepare("DELETE FROM app_settings WHERE key = 'quincena_budget'").run();
+}
+
+sqlite.exec(`
+	CREATE TABLE IF NOT EXISTS grocery_items (
+		id INTEGER PRIMARY KEY,
+		name TEXT NOT NULL,
+		purchased INTEGER NOT NULL DEFAULT 0,
+		created_by INTEGER NOT NULL REFERENCES users(id),
+		created_at TEXT DEFAULT CURRENT_TIMESTAMP
+	);
 `);
 
 if (tableExists('expenses') && tableExists('recurring_expenses')) {

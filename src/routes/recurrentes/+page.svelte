@@ -89,9 +89,9 @@
 	{/if}
 
 	<Card class="mb-6 p-4 border-primary/20 bg-primary/5">
-		<p class="text-xs leading-relaxed text-muted-foreground">
-			Los recurrentes son recordatorios de gastos fijos. Te ayudan a no olvidar pagos de la quincena, pero no descuentan presupuesto hasta usar <span class="font-semibold text-foreground">Registrar en la quincena</span>.
-		</p>
+	<p class="text-xs leading-relaxed text-muted-foreground">
+		Los recurrentes son recordatorios de gastos fijos. Te ayudan a no olvidar pagos del mes, pero no descuentan presupuesto hasta usar <span class="font-semibold text-foreground">Registrar en el mes</span>.
+	</p>
 	</Card>
 
 	<!-- Add New -->
@@ -182,16 +182,16 @@
 					<input type="hidden" name="id" value={item.id} />
 					<button
 						type="submit"
-						disabled={item.appliedThisQuincena}
+						disabled={item.appliedThisMonth}
 						class="w-full flex items-center justify-center gap-2 rounded-lg text-xs font-semibold py-2 transition-all active:scale-98 disabled:cursor-not-allowed disabled:opacity-55"
-						style="background-color: {item.appliedThisQuincena ? '#27272a' : item.color + '18'}; color: {item.appliedThisQuincena ? '#a1a1aa' : item.color};"
+						style="background-color: {item.appliedThisMonth ? '#27272a' : item.color + '18'}; color: {item.appliedThisMonth ? '#a1a1aa' : item.color};"
 					>
-						{#if item.appliedThisQuincena}
+						{#if item.appliedThisMonth}
 							<Check size={13} />
-							Ya registrado esta quincena
+							Ya registrado este mes
 						{:else}
 							<RefreshCw size={13} />
-							Registrar en la quincena
+							Registrar en el mes
 						{/if}
 					</button>
 				</form>

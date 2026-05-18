@@ -3,9 +3,9 @@
 	import Card from '$lib/components/ui/Card.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import CategoryIcon from '$lib/components/CategoryIcon.svelte';
-	import { Plus, LogOut, Calendar, Pencil, Trash2, X, Check, WalletCards } from 'lucide-svelte';
+	import { Plus, LogOut, Calendar, Pencil, Trash2, X, Check, WalletCards, ShoppingCart, ChevronLeft, ChevronRight } from 'lucide-svelte';
 	import { enhance } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
+	import { invalidateAll, goto } from '$app/navigation';
 	import { format } from 'date-fns';
 	import { es } from 'date-fns/locale';
 
@@ -16,7 +16,6 @@
 		'entretenimiento', 'salud', 'compras', 'otros'
 	];
 
-	// Form state
 	let amount = $state('');
 	let selectedCategory = $state('comida');
 	let note = $state('');
@@ -24,19 +23,16 @@
 	let showBudgetForm = $state(false);
 	let budgetValue = $state('');
 
-	// Edit modal state
 	let editingExpense = $state<{ id: number; amount: number; category: string; note: string | null; date: string } | null>(null);
 	let editAmount = $state('');
 	let editCategory = $state('');
 	let editNote = $state('');
 	let editDate = $state('');
 
-	// Delete confirmation state
 	let deletingId = $state<number | null>(null);
 
-	// Budget calc
-	const budget = $derived(data.quincenaBudget);
-	const spent = $derived(data.quincenaTotal);
+	const budget = $derived(data.monthlyBudget);
+	const spent = $derived(data.monthTotal);
 	const remaining = $derived(budget - spent);
 	const progress = $derived(Math.min((spent / budget) * 100, 100));
 	const progressColor = $derived(
@@ -45,6 +41,23 @@
 		progress >= 60  ? '#eab308' :
 		'#22c55e'
 	);
+
+	const selectedDate = $derived(new Date(data.year, data.month));
+
+	function prevMonth() {
+		const d = new Date(data.year, data.month - 1);
+		goto(`/?year=${d.getFullYear()}&month=${d.getMonth()}`);
+	}
+
+	function nextMonth() {
+		const d = new Date(data.year, data.month + 1);
+		goto(`/?year=${d.getFullYear()}&month=${d.getMonth()}`);
+	}
+
+	function goToCurrentMonth() {
+		const now = new Date();
+		goto(`/?year=${now.getFullYear()}&month=${now.getMonth()}`);
+	}
 
 	function handleSuccess() {
 		amount = '';
@@ -67,7 +80,7 @@
 	}
 
 	function openBudgetForm() {
-		budgetValue = String(data.quincenaBudget);
+		budgetValue = String(data.monthlyBudget);
 		showBudgetForm = true;
 	}
 
@@ -75,12 +88,7 @@
 		return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 	}
 
-	// Quincena label
-	const quincenaLabel = $derived.by(() => {
-		const qStart = new Date(data.quincenaRange.start + 'T00:00:00');
-		const qEnd = new Date(data.quincenaRange.end + 'T00:00:00');
-		return `${format(qStart, 'd MMM', { locale: es })} – ${format(qEnd, 'd MMM', { locale: es })}`;
-	});
+	const monthLabel = $derived(format(selectedDate, "MMMM 'de' yyyy", { locale: es }));
 
 	const categoryColors: Record<string, string> = {
 		comida: '#ef4444',
@@ -110,6 +118,9 @@
 			</p>
 		</div>
 		<div class="flex gap-1">
+			<a href="/despensa" class="inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-muted transition-colors" title="Lista de despensa">
+				<ShoppingCart size={20} />
+			</a>
 			<a href="/recurrentes" class="inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-muted transition-colors" title="Gastos recurrentes">
 				<Calendar size={20} />
 			</a>
@@ -121,22 +132,41 @@
 		</div>
 	</div>
 
-	<!-- Quincena Budget Card -->
+	<!-- Month Navigation -->
+	<div class="mb-4 flex items-center justify-between">
+		<button onclick={prevMonth} class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted transition-colors">
+			<ChevronLeft size={20} />
+		</button>
+		<button onclick={goToCurrentMonth} class="text-sm font-bold capitalize hover:text-primary transition-colors" disabled={data.isCurrentMonth}>
+			{monthLabel}
+		</button>
+		<button onclick={nextMonth} class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted transition-colors">
+			<ChevronRight size={20} />
+		</button>
+	</div>
+
+	<!-- Monthly Budget Card -->
 	<Card class="mb-6 p-5 bg-primary text-primary-foreground shadow-lg shadow-primary/20">
 		<div class="flex items-start justify-between mb-1">
 			<div>
-				<p class="text-[10px] font-semibold uppercase tracking-wider opacity-70">Presupuesto inicial de quincena</p>
-				<p class="text-[10px] opacity-50 mt-0.5">{quincenaLabel}</p>
+				<p class="text-[10px] font-semibold uppercase tracking-wider opacity-70">Presupuesto del mes</p>
 			</div>
-			<button
-				type="button"
-				class="inline-flex items-center gap-1 rounded bg-white/10 px-2 py-1 text-[10px] font-bold opacity-80 transition hover:opacity-100"
-				onclick={openBudgetForm}
-				title="Modificar presupuesto"
-			>
-				<WalletCards size={12} />
-				{formatCurrency(budget)}
-			</button>
+			{#if data.isCurrentMonth}
+				<button
+					type="button"
+					class="inline-flex items-center gap-1 rounded bg-white/10 px-2 py-1 text-[10px] font-bold opacity-80 transition hover:opacity-100"
+					onclick={openBudgetForm}
+					title="Modificar presupuesto"
+				>
+					<WalletCards size={12} />
+					{formatCurrency(budget)}
+				</button>
+			{:else}
+				<span class="inline-flex items-center gap-1 rounded bg-white/10 px-2 py-1 text-[10px] font-bold opacity-80">
+					<WalletCards size={12} />
+					{formatCurrency(budget)}
+				</span>
+			{/if}
 		</div>
 
 		{#if showBudgetForm}
@@ -148,7 +178,7 @@
 					}
 				};
 			}} class="mb-4 mt-4 rounded-lg bg-white/10 p-3">
-				<label for="budget" class="mb-2 block text-[10px] font-semibold uppercase tracking-wider opacity-70">Nuevo presupuesto inicial</label>
+				<label for="budget" class="mb-2 block text-[10px] font-semibold uppercase tracking-wider opacity-70">Nuevo presupuesto mensual</label>
 				<div class="flex gap-2">
 					<div class="relative flex-1">
 						<span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs opacity-70">$</span>
@@ -160,7 +190,6 @@
 			</form>
 		{/if}
 
-		<!-- Amounts -->
 		<div class="mt-3 mb-4">
 			<h2 class="text-4xl font-black tracking-tight">{formatCurrency(spent)}</h2>
 			<p class="text-[10px] uppercase tracking-wider opacity-60">gastado hasta ahora</p>
@@ -173,7 +202,6 @@
 			</p>
 		</div>
 
-		<!-- Progress bar -->
 		<div class="w-full h-2 bg-white/20 rounded-full overflow-hidden">
 			<div
 				class="h-full rounded-full transition-all duration-700"
@@ -185,7 +213,6 @@
 			<span>{progress.toFixed(0)}% usado</span>
 		</div>
 
-		<!-- Per user -->
 		{#if data.userTotals.length > 0}
 			<div class="mt-4 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
 				{#each data.userTotals as ut}
@@ -198,95 +225,97 @@
 		{/if}
 	</Card>
 
-	<!-- Quick Add Form -->
-	<h3 class="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">Registrar Gasto</h3>
-	<Card class="mb-6 p-5">
-		<form method="POST" action="?/addExpense" use:enhance={() => {
-			return async ({ result, update }) => {
-				await update();
-				if (result.type === 'success') handleSuccess();
-			};
-		}} class="space-y-3">
-			<div class="flex gap-2">
-				<div class="relative flex-1">
-					<span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">$</span>
-					<Input
-						name="amount"
-						type="number"
-						step="0.01"
-						placeholder="0.00"
-						bind:value={amount}
-						class="pl-7 text-lg font-bold"
-						required
-					/>
-				</div>
-				<select
-					name="category"
-					bind:value={selectedCategory}
-					class="w-32 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-				>
-					{#each categories as cat}
-						<option value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
-					{/each}
-				</select>
-			</div>
-
-			<div class="relative">
-				<Input name="note" bind:value={note} placeholder="Nota opcional (ej. Walmart, Netflix)" class="pr-8" />
-				{#if note}
-					<button type="button" onclick={() => note = ''} class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-						<X size={14} />
-					</button>
-				{/if}
-			</div>
-
-			<Button type="submit" class="w-full gap-2">
-				<Plus size={18} />
-				Registrar Gasto
-			</Button>
-
-			{#if showSuccess}
-				<p class="text-center text-xs font-medium text-green-500 flex items-center justify-center gap-1">
-					<Check size={14} /> ¡Gasto guardado!
-				</p>
-			{/if}
-		</form>
-	</Card>
-
-	<!-- Recurring quick-apply -->
-	{#if data.recurring.length > 0}
-		<h3 class="mb-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">Recurrentes — Aplicar a la quincena</h3>
-		<p class="mb-3 text-[11px] leading-relaxed text-muted-foreground/70">
-			Úsalos para tus pagos fijos: renta, servicios o suscripciones. No cuentan hasta que los registras como gasto.
-		</p>
-		<div class="mb-6 flex gap-2 overflow-x-auto pb-1">
-			{#each data.recurring as item}
-				<form method="POST" action="?/applyRecurring" use:enhance={() => {
-					return async ({ result }) => {
-						if (result.type === 'success') {
-							invalidateAll();
-						}
-					};
-				}}>
-					<input type="hidden" name="id" value={item.id} />
-					<button
-						type="submit"
-						class="flex-shrink-0 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium text-foreground transition-all active:scale-95"
-						style="border-color: {item.color}55; background-color: {item.color}18;"
+	<!-- Quick Add Form - solo en mes actual -->
+	{#if data.isCurrentMonth}
+		<h3 class="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">Registrar Gasto</h3>
+		<Card class="mb-6 p-5">
+			<form method="POST" action="?/addExpense" use:enhance={() => {
+				return async ({ result, update }) => {
+					await update();
+					if (result.type === 'success') handleSuccess();
+				};
+			}} class="space-y-3">
+				<div class="flex gap-2">
+					<div class="relative flex-1">
+						<span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">$</span>
+						<Input
+							name="amount"
+							type="number"
+							step="0.01"
+							placeholder="0.00"
+							bind:value={amount}
+							class="pl-7 text-lg font-bold"
+							required
+						/>
+					</div>
+					<select
+						name="category"
+						bind:value={selectedCategory}
+						class="w-32 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
 					>
-						<span class="rounded-full p-1" style="background-color: {item.color}24; color: {item.color};">
-							<CategoryIcon category={item.category} size={14} />
-						</span>
-						<span>{item.name}</span>
-						<span class="font-black" style="color: {item.color};">{formatCurrency(item.amount)}</span>
-					</button>
-				</form>
-			{/each}
-		</div>
+						{#each categories as cat}
+							<option value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+						{/each}
+					</select>
+				</div>
+
+				<div class="relative">
+					<Input name="note" bind:value={note} placeholder="Nota opcional (ej. Walmart, Netflix)" class="pr-8" />
+					{#if note}
+						<button type="button" onclick={() => note = ''} class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+							<X size={14} />
+						</button>
+					{/if}
+				</div>
+
+				<Button type="submit" class="w-full gap-2">
+					<Plus size={18} />
+					Registrar Gasto
+				</Button>
+
+				{#if showSuccess}
+					<p class="text-center text-xs font-medium text-green-500 flex items-center justify-center gap-1">
+						<Check size={14} /> ¡Gasto guardado!
+					</p>
+				{/if}
+			</form>
+		</Card>
+
+		<!-- Recurring quick-apply -->
+		{#if data.recurring.length > 0}
+			<h3 class="mb-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">Recurrentes — Aplicar al mes</h3>
+			<p class="mb-3 text-[11px] leading-relaxed text-muted-foreground/70">
+				Úsalos para tus pagos fijos: renta, servicios o suscripciones. No cuentan hasta que los registras como gasto.
+			</p>
+			<div class="mb-6 flex gap-2 overflow-x-auto pb-1">
+				{#each data.recurring as item}
+					<form method="POST" action="?/applyRecurring" use:enhance={() => {
+						return async ({ result }) => {
+							if (result.type === 'success') {
+								invalidateAll();
+							}
+						};
+					}}>
+						<input type="hidden" name="id" value={item.id} />
+						<button
+							type="submit"
+							class="flex-shrink-0 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium text-foreground transition-all active:scale-95"
+							style="border-color: {item.color}55; background-color: {item.color}18;"
+						>
+							<span class="rounded-full p-1" style="background-color: {item.color}24; color: {item.color};">
+								<CategoryIcon category={item.category} size={14} />
+							</span>
+							<span>{item.name}</span>
+							<span class="font-black" style="color: {item.color};">{formatCurrency(item.amount)}</span>
+						</button>
+					</form>
+				{/each}
+			</div>
+		{/if}
 	{/if}
 
 	<!-- Recent Expenses -->
-	<h3 class="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">Gastos de esta Quincena</h3>
+	<h3 class="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">Gastos de {monthLabel}</h3>
 	<div class="space-y-2">
 		{#each data.recentExpenses as expense}
 			{@const color = getExpenseColor(expense)}
@@ -311,20 +340,16 @@
 
 				<div class="flex items-center gap-2 flex-shrink-0 ml-2">
 					<p class="text-sm font-black" style="color: {color};">-{formatCurrency(expense.amount)}</p>
-
-					<!-- Edit button -->
 					<button onclick={() => openEdit(expense)} class="text-muted-foreground hover:text-foreground transition-colors p-1 rounded">
 						<Pencil size={14} />
 					</button>
-
-					<!-- Delete button -->
 					<button onclick={() => deletingId = expense.id} class="text-muted-foreground hover:text-red-500 transition-colors p-1 rounded">
 						<Trash2 size={14} />
 					</button>
 				</div>
 			</Card>
 		{:else}
-			<p class="text-center text-sm text-muted-foreground py-10">Sin gastos esta quincena 🎉</p>
+			<p class="text-center text-sm text-muted-foreground py-10">Sin gastos este mes 🎉</p>
 		{/each}
 	</div>
 
@@ -345,7 +370,7 @@
 	{/if}
 </div>
 
-<!-- ============ EDIT MODAL ============ -->
+<!-- EDIT MODAL -->
 {#if editingExpense}
 	<div class="fixed inset-0 z-50 flex items-end justify-center">
 		<button type="button" aria-label="Cerrar edición" class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick={closeEdit}></button>
@@ -389,7 +414,7 @@
 	</div>
 {/if}
 
-<!-- ============ DELETE CONFIRM MODAL ============ -->
+<!-- DELETE CONFIRM MODAL -->
 {#if deletingId !== null}
 	<div class="fixed inset-0 z-50 flex items-center justify-center px-6">
 		<button type="button" aria-label="Cancelar eliminación" class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick={() => deletingId = null}></button>

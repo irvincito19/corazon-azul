@@ -32,3 +32,11 @@ export const appSettings = sqliteTable('app_settings', {
 	key: text('key').primaryKey(),
 	value: text('value').notNull()
 });
+
+export const groceryItems = sqliteTable('grocery_items', {
+	id: integer('id').primaryKey(),
+	name: text('name').notNull(),
+	purchased: integer('purchased').notNull().default(0),
+	createdBy: integer('created_by').notNull().references(() => users.id),
+	createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`)
+});
